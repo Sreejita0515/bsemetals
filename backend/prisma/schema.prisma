@@ -1,0 +1,80 @@
+// schema.prisma
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model LMERate {
+  id          String   @id @default(uuid())
+  date        String   @unique // YYYY-MM-DD
+  ratePerKg   Float
+  createdBy   String   // Firebase UID or mock admin identifier
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Category {
+  id                 String    @id @default(uuid())
+  name               String
+  copperContentPct   Float     // e.g. 99.99 for pure (deprecated)
+  makingChargePerKg  Float     // ₹/kg (deprecated)
+  marginPct          Float     // Margin added to the rate (deprecated)
+  unitRate           Float     @default(0) // Manual rate override per kg
+  products           Product[]
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model Product {
+  id          String      @id @default(uuid())
+  categoryId  String
+  category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name        String
+  unit        String      @default("kg") // Unit of product, defaults to kg
+  quoteItems  QuoteItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model QuoteRequest {
+  id           String      @id @default(uuid())
+  customerUid  String      // Firebase UID
+  userProfile  UserProfile? @relation(fields: [customerUid], references: [uid])
+  customerName String
+  company      String
+  phone        String
+  email        String
+  status       String      @default("PENDING") // PENDING, SENT, ACCEPTED
+  items        QuoteItem[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+}
+
+model QuoteItem {
+  id             String       @id @default(uuid())
+  quoteId        String
+  quoteRequest   QuoteRequest @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product      @relation(fields: [productId], references: [id])
+  rateSnapshot   Float        // Snapshotted price at time of request (ratePerKg)
+  quantity       Float        // in kg
+  subtotal       Float        // Snapshot rate * quantity
+}
+
+model UserProfile {
+  uid            String   @id // Firebase UID
+  name           String
+  email          String
+  phone          String?
+  companyName    String?
+  companyAddress String?
+  gstin          String?
+  quotes         QuoteRequest[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

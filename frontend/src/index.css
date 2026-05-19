@@ -1,0 +1,74 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-100 antialiased selection:bg-copper-500/30 selection:text-copper-200;
+  }
+}
+
+/* Glassmorphism card default utility */
+.glass-panel {
+  @apply bg-slate-900/60 backdrop-blur-md border border-slate-800/80 shadow-copper-glow;
+}
+
+.glass-panel-interactive {
+  @apply glass-panel hover:border-copper-500/40 hover:shadow-copper-glow-lg transition-all duration-300 transform hover:scale-[1.01] active:scale-[0.99];
+}
+
+/* Custom premium metallic gradient text */
+.text-gradient-copper {
+  @apply bg-gradient-to-r from-amber-400 via-copper-500 to-amber-600 bg-clip-text text-transparent;
+}
+
+/* Premium copper metallic button style */
+.btn-copper {
+  @apply bg-gradient-to-r from-copper-600 to-amber-600 hover:from-copper-500 hover:to-amber-500 text-white font-medium py-2.5 px-5 rounded-xl shadow-lg hover:shadow-copper-glow shadow-copper-900/20 transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-2;
+}
+
+.btn-secondary {
+  @apply bg-slate-900 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 text-slate-300 py-2.5 px-5 rounded-xl transition-all duration-300 transform active:scale-95 flex items-center justify-center gap-2;
+}
+
+/* Hide spin-buttons for input numbers */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type=number] {
+  -moz-appearance: textfield;
+}
+
+/* Micro-animations and custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-slate-950;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-800 hover:bg-copper-600 rounded-full transition-all;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 8s infinite ease-in-out;
+}
