@@ -35,6 +35,13 @@ app.use('/api/products', productsRouter);
 app.use('/api/quotes', quotesRouter);
 app.use('/api/users', usersRouter);
 
+// Serve uploads statically
+import path from 'path';
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Health/Welcome Route
 app.get('/', (req, res) => {
   res.json({

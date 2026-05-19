@@ -29,7 +29,7 @@ export default function ProtectedRoute({ children, requiredRole }) {
   // 2. Authorized check
   if (requiredRole && user.role !== requiredRole) {
     if (user.role === 'admin') {
-      return <Navigate to="/admin/rates" replace />;
+      return <Navigate to="/admin/products" replace />;
     } else {
       return <Navigate to="/quote" replace />;
     }

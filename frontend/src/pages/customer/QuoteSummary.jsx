@@ -13,7 +13,8 @@ import {
   Loader2, 
   CheckCircle, 
   Trash2, 
-  IndianRupee 
+  IndianRupee,
+  MapPin
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -31,6 +32,7 @@ export default function QuoteSummary() {
   const [company, setCompany] = useState(user?.companyName || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [address, setAddress] = useState(user?.companyAddress || '');
 
   const [formError, setFormError] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -65,7 +67,7 @@ export default function QuoteSummary() {
   }, []);
 
   const getProductRate = (prod) => {
-    return prod.category?.unitRate || 0;
+    return prod.unitRate || 0;
   };
 
   const getCartItemsList = () => {
@@ -97,8 +99,8 @@ export default function QuoteSummary() {
 
   const handleSubmitQuote = async (e) => {
     e.preventDefault();
-    if (!customerName || !company || !phone || !email) {
-      setFormError('Please fill in all contact information fields.');
+    if (!customerName || !company || !phone || !email || !address) {
+      setFormError('Please fill in all contact and shipping information fields.');
       return;
     }
     if (cartItems.length === 0) {
@@ -122,6 +124,7 @@ export default function QuoteSummary() {
           company,
           phone,
           email,
+          address,
           items: itemsPayload
         })
       });
@@ -197,7 +200,7 @@ export default function QuoteSummary() {
           Review Quote Request
         </h1>
         <p className="text-slate-400 text-sm mt-1.5">
-          Review selected copper products, quantities, and input corporate details to submit your quote.
+          Review selected products, quantities, and input corporate details to submit your quote.
         </p>
       </div>
 
@@ -246,7 +249,7 @@ export default function QuoteSummary() {
                   <Link to="/quote" className="text-copper-400 hover:underline">
                     Product Catalog
                   </Link>{' '}
-                  to pick copper items.
+                  to pick items.
                 </div>
               )}
             </div>
@@ -342,6 +345,21 @@ export default function QuoteSummary() {
                     placeholder="rajesh@alphaelec.com"
                     className="w-full bg-slate-950 border border-slate-850 hover:border-slate-800 focus:border-copper-500 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder:text-slate-700 outline-none transition"
                   />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Shipping Address</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3.5 top-3 w-4 h-4 text-slate-550" />
+                  <textarea
+                    required
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="123 Industrial Estate, Phase 1, Mumbai, Maharashtra 400001"
+                    rows="3"
+                    className="w-full bg-slate-950 border border-slate-850 hover:border-slate-800 focus:border-copper-500 rounded-xl py-2.5 pl-10 pr-4 text-sm text-slate-100 placeholder:text-slate-700 outline-none transition resize-none"
+                  ></textarea>
                 </div>
               </div>
 

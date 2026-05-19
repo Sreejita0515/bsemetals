@@ -10,6 +10,7 @@ import {
   Tag, 
   Settings, 
   Layers, 
+  Search,
   X 
 } from 'lucide-react';
 
@@ -18,6 +19,7 @@ export default function Products() {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Form states
   const [modalOpen, setModalOpen] = useState(false);
@@ -26,6 +28,7 @@ export default function Products() {
   const [name, setName] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [unit, setUnit] = useState('kg');
+  const [unitRate, setUnitRate] = useState('');
 
   const [formError, setFormError] = useState('');
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -54,6 +57,7 @@ export default function Products() {
     setName('');
     setCategoryId(categories[0]?.id || '');
     setUnit('kg');
+    setUnitRate('');
     setFormError('');
     setModalOpen(true);
   };
@@ -64,14 +68,21 @@ export default function Products() {
     setName(prod.name);
     setCategoryId(prod.categoryId);
     setUnit(prod.unit);
+    setUnitRate((prod.unitRate || 0).toString());
     setFormError('');
     setModalOpen(true);
   };
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!name || !categoryId || !unit) {
+    if (!name || !categoryId || !unit || !unitRate) {
       setFormError('Please fill in all fields.');
+      return;
+    }
+
+    const rateVal = parseFloat(unitRate);
+    if (rateVal < 0) {
+      setFormError('Please enter a valid positive number for the rate.');
       return;
     }
 
@@ -79,7 +90,7 @@ export default function Products() {
     setFormError('');
 
     try {
-      const body = { name, categoryId, unit };
+      const body = { name, categoryId, unit, unitRate: rateVal };
 
       if (isEditing) {
         await apiFetch(`/api/products/${editingId}`, {
@@ -125,6 +136,23 @@ export default function Products() {
     );
   }
 
+  const filteredProducts = products.filter(prod => 
+    prod.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (prod.category?.name || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Group products by category name
+  const productsByCategory = filteredProducts.reduce((groups, prod) => {
+    const catName = prod.category?.name || 'Unassigned';
+    if (!groups[catName]) {
+      groups[catName] = [];
+    }
+    groups[catName].push(prod);
+    return groups;
+  }, {});
+
+  const hasProducts = filteredProducts.length > 0;
+
   return (
     <div className="space-y-8">
       
@@ -133,10 +161,10 @@ export default function Products() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-100 flex items-center gap-2.5">
             <Package className="w-8 h-8 text-copper-500" />
-            Products Catalog
+            Sub Categories Catalog
           </h1>
           <p className="text-slate-400 text-sm mt-1.5">
-            Create and manage specific copper product items, mapping them to their parent formula categories.
+            Create and manage specific metal sub-categories, mapping them to their main metal categories.
           </p>
         </div>
         <button
@@ -145,78 +173,95 @@ export default function Products() {
           className="btn-copper py-3 self-start cursor-pointer font-bold disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="w-5 h-5 stroke-[2.5]" />
-          Create Product
+          Create Sub Category
         </button>
+      </div>
+
+      {/* Search Bar */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by item name or category..."
+          className="w-full bg-slate-900 border border-slate-800 focus:border-copper-500 rounded-xl py-3 pl-12 pr-4 text-sm text-slate-100 placeholder:text-slate-500 outline-none transition"
+        />
       </div>
 
       {categories.length === 0 && (
         <div className="bg-amber-500/10 border border-amber-500/20 p-5 rounded-2xl text-amber-400 text-sm">
-          ⚠️ <strong>Required:</strong> Please create at least one Product Category first before defining individual products.
+          ⚠️ <strong>Required:</strong> Please ensure Main Categories are loaded before defining sub-categories.
         </div>
       )}
 
-      {/* Products Table */}
-      <div className="glass-panel rounded-2xl p-6 border-slate-800">
-        <div className="overflow-x-auto rounded-xl border border-slate-900 bg-slate-950">
-          <table className="min-w-full divide-y divide-slate-900 text-left text-sm">
-            <thead className="bg-slate-900/60 text-slate-400 uppercase text-[10px] tracking-wider font-bold">
-              <tr>
-                <th className="px-6 py-4">Product Name</th>
-                <th className="px-6 py-4">Parent Category</th>
-                <th className="px-6 py-4">Measurement Unit</th>
-                <th className="px-6 py-4">Created Date</th>
-                <th className="px-6 py-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-900">
-              {products.map((prod) => (
-                <tr key={prod.id} className="hover:bg-slate-900/30 transition">
-                  <td className="px-6 py-4 font-bold text-slate-200">
-                    {prod.name}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-copper-500/10 border border-copper-500/20 text-copper-400">
-                      <Layers className="w-3 h-3" />
-                      {prod.category?.name || 'Unassigned'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 font-semibold text-slate-400 text-xs uppercase font-mono">
-                    {prod.unit}
-                  </td>
-                  <td className="px-6 py-4 text-slate-500 text-xs">
-                    {new Date(prod.createdAt).toLocaleDateString('en-IN')}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openEditModal(prod)}
-                        className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer"
-                        title="Edit Product"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(prod.id)}
-                        className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-400 transition cursor-pointer"
-                        title="Delete Product"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {products.length === 0 && (
-                <tr>
-                  <td colSpan="5" className="text-center py-8 text-slate-500">
-                    No products listed. Add items to expand catalog.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {/* Products By Category */}
+      {!hasProducts ? (
+        <div className="glass-panel rounded-2xl p-12 text-center text-slate-500 border-slate-800">
+          No sub-categories listed. Add items to expand catalog.
         </div>
-      </div>
+      ) : (
+        <div className="space-y-8">
+          {Object.keys(productsByCategory).map((catName) => (
+            <div key={catName} className="glass-panel rounded-2xl p-6 border-slate-800">
+              <h2 className="text-lg font-bold text-slate-300 flex items-center gap-2 mb-4 border-b border-slate-800/50 pb-3">
+                <Layers className="w-5 h-5 text-copper-500" />
+                {catName}
+              </h2>
+              
+              <div className="overflow-x-auto rounded-xl border border-slate-900 bg-slate-950">
+                <table className="min-w-full divide-y divide-slate-900 text-left text-sm">
+                  <thead className="bg-slate-900/60 text-slate-400 uppercase text-[10px] tracking-wider font-bold">
+                    <tr>
+                      <th className="px-6 py-4">Sub Category Name</th>
+                      <th className="px-6 py-4">Measurement Unit</th>
+                      <th className="px-6 py-4">Unit Rate (₹)</th>
+                      <th className="px-6 py-4">Created Date</th>
+                      <th className="px-6 py-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-900">
+                    {productsByCategory[catName].map((prod) => (
+                      <tr key={prod.id} className="hover:bg-slate-900/30 transition">
+                        <td className="px-6 py-4 font-bold text-slate-200">
+                          {prod.name}
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-slate-400 text-xs uppercase font-mono">
+                          {prod.unit}
+                        </td>
+                        <td className="px-6 py-4 font-bold text-emerald-400">
+                          ₹{(prod.unitRate || 0).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 text-slate-500 text-xs">
+                          {new Date(prod.createdAt).toLocaleDateString('en-IN')}
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openEditModal(prod)}
+                              className="p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-slate-200 transition cursor-pointer"
+                              title="Edit Sub Category"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(prod.id)}
+                              className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-400 transition cursor-pointer"
+                              title="Delete Sub Category"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* CRUD Overlay Form Modal */}
       {modalOpen && (
@@ -232,7 +277,7 @@ export default function Products() {
 
             <h2 className="text-xl font-bold text-slate-200 mb-6 flex items-center gap-2">
               <Package className="w-5 h-5 text-copper-500" />
-              {isEditing ? 'Modify Product Specifications' : 'Define New Product'}
+              {isEditing ? 'Modify Sub Category Specifications' : 'Define New Sub Category'}
             </h2>
 
             {formError && (
@@ -243,19 +288,7 @@ export default function Products() {
 
             <form onSubmit={handleSave} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Product Name</label>
-                <input
-                  type="text"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. House Wire 1.5 sq mm"
-                  className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-copper-500 rounded-xl py-2.5 px-4 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Parent Category Mapping</label>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Main Category Mapping</label>
                 <select
                   required
                   value={categoryId}
@@ -264,10 +297,22 @@ export default function Products() {
                 >
                   {categories.map((cat) => (
                     <option key={cat.id} value={cat.id}>
-                      {cat.name} (Copper: {cat.copperContentPct}%)
+                      {cat.name}
                     </option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Sub Category Name</label>
+                <input
+                  type="text"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Copper Wire Scrap"
+                  className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-copper-500 rounded-xl py-2.5 px-4 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition"
+                />
               </div>
 
               <div>
@@ -287,6 +332,23 @@ export default function Products() {
                 </span>
               </div>
 
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Unit Rate (₹ / {unit})</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-semibold">₹</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={unitRate}
+                    onChange={(e) => setUnitRate(e.target.value)}
+                    placeholder="850.00"
+                    className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-copper-500 rounded-xl py-2.5 pl-8 pr-4 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition"
+                  />
+                </div>
+              </div>
+
               <button
                 type="submit"
                 disabled={submitLoading}
@@ -295,7 +357,7 @@ export default function Products() {
                 {submitLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
-                  isEditing ? 'Save Product Changes' : 'Create Product Entry'
+                  isEditing ? 'Save Sub Category' : 'Create Sub Category'
                 )}
               </button>
             </form>

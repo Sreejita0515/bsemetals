@@ -7,30 +7,25 @@ import Layout from './components/Layout';
 
 // Pages
 import Login from './pages/Login';
-import Rates from './pages/admin/Rates';
 import Categories from './pages/admin/Categories';
 import Products from './pages/admin/Products';
 import Quotes from './pages/admin/Quotes';
+import Users from './pages/admin/Users';
+import AdminProfile from './pages/admin/AdminProfile';
 import QuoteCatalog from './pages/customer/QuoteCatalog';
 import QuoteSummary from './pages/customer/QuoteSummary';
+import OrderTracking from './pages/customer/OrderTracking';
+import Profile from './pages/customer/Profile';
 
 function AppRoutes() {
   return (
     <Routes>
       {/* Shared Auth Route */}
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={<Login initialType="customer" />} />
+      <Route path="/admin/login" element={<Login initialType="admin" />} />
+      <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
 
       {/* Admin Dashboard Protected Routes */}
-      <Route 
-        path="/admin/rates" 
-        element={
-          <ProtectedRoute requiredRole="admin">
-            <Layout>
-              <Rates />
-            </Layout>
-          </ProtectedRoute>
-        } 
-      />
       <Route 
         path="/admin/categories" 
         element={
@@ -61,6 +56,27 @@ function AppRoutes() {
           </ProtectedRoute>
         } 
       />
+      <Route 
+        path="/admin/users" 
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <Layout>
+              <Users />
+            </Layout>
+          </ProtectedRoute>
+        } 
+      />
+
+      <Route 
+        path="/admin/profile" 
+        element={
+          <ProtectedRoute requiredRole="admin">
+            <Layout>
+              <AdminProfile />
+            </Layout>
+          </ProtectedRoute>
+        } 
+      />
 
       {/* Customer Protected Routes */}
       <Route 
@@ -79,6 +95,28 @@ function AppRoutes() {
           <ProtectedRoute requiredRole="customer">
             <Layout>
               <QuoteSummary />
+            </Layout>
+          </ProtectedRoute>
+        } 
+      />
+
+      <Route 
+        path="/customer/orders" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <Layout>
+              <OrderTracking />
+            </Layout>
+          </ProtectedRoute>
+        } 
+      />
+
+      <Route 
+        path="/profile" 
+        element={
+          <ProtectedRoute requiredRole="customer">
+            <Layout>
+              <Profile />
             </Layout>
           </ProtectedRoute>
         } 

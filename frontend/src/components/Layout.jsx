@@ -13,7 +13,11 @@ import {
   Menu, 
   X, 
   Activity,
-  Layers2
+  Layers2,
+  Users,
+  UserCircle,
+  UserCircle2,
+  Truck
 } from 'lucide-react';
 
 export default function Layout({ children }) {
@@ -21,24 +25,6 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [todayRate, setTodayRate] = useState(null);
-
-  useEffect(() => {
-    // Fetch today's rate for navbar ticker
-    const fetchRate = async () => {
-      try {
-        const data = await apiFetch('/api/rates');
-        if (data.todayRate) {
-          setTodayRate(data.todayRate.ratePerKg);
-        }
-      } catch (err) {
-        console.error('Navbar rate fetch fail:', err);
-      }
-    };
-    if (user) {
-      fetchRate();
-    }
-  }, [user]);
 
   const handleLogout = async () => {
     await logout();
@@ -50,14 +36,16 @@ export default function Layout({ children }) {
   // Navigation Links based on User Role
   const navLinks = isAdmin 
     ? [
-        { path: '/admin/rates', label: 'LME Rates', icon: TrendingUp },
-        { path: '/admin/categories', label: 'Categories', icon: Layers },
-        { path: '/admin/products', label: 'Products', icon: Package },
+        { path: '/admin/categories', label: 'Main Categories', icon: Layers },
+        { path: '/admin/products', label: 'Product Catalog', icon: Package },
         { path: '/admin/quotes', label: 'Quote Requests', icon: FileText },
+        { path: '/admin/users', label: 'Users', icon: Users },
+        { path: '/admin/profile', label: 'My Profile', icon: UserCircle2 },
       ]
     : [
         { path: '/quote', label: 'Product Catalog', icon: ShoppingCart },
-        { path: '/quote/summary', label: 'Review Quote', icon: FileText },
+        { path: '/customer/orders', label: 'Track Orders', icon: Truck },
+        { path: '/profile', label: 'My Profile', icon: UserCircle },
       ];
 
   return (
@@ -95,20 +83,6 @@ export default function Layout({ children }) {
             {/* Desktop Nav Ticker & Links */}
             <div className="hidden md:flex items-center gap-8">
               
-              {/* Active LME Rate Ticker */}
-              {user && (
-                <div className="bg-slate-900 border border-slate-800 rounded-full px-4 py-1.5 flex items-center gap-2.5 shadow-inner">
-                  <span className="flex h-2.5 w-2.5 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                  </span>
-                  <span className="text-xs font-semibold text-slate-400 tracking-wider">LME RATE:</span>
-                  <span className="text-sm font-bold text-emerald-400">
-                    {todayRate ? `₹${todayRate.toFixed(2)}/kg` : 'Loading...'}
-                  </span>
-                </div>
-              )}
-
               {/* Links */}
               <nav className="flex items-center gap-1.5">
                 {navLinks.map((link) => {
@@ -158,12 +132,6 @@ export default function Layout({ children }) {
 
             {/* Mobile Menu Toggle */}
             <div className="flex md:hidden items-center gap-4">
-              {todayRate && (
-                <div className="bg-slate-900 border border-slate-800 rounded-full px-3 py-1 flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-slate-400">LME:</span>
-                  <span className="text-xs font-bold text-emerald-400">₹{todayRate.toFixed(1)}</span>
-                </div>
-              )}
               <button
                 onClick={() => setMobileMenuOpen(prev => !prev)}
                 className="text-slate-300 hover:text-white p-1 bg-slate-900 border border-slate-800 rounded-lg"

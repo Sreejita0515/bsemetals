@@ -15,36 +15,39 @@ export function AuthProvider({ children }) {
   const syncFirebaseUser = async (firebaseUser) => {
     if (firebaseUser) {
       try {
-        const tokenResult = await firebaseUser.getIdTokenResult(true);
-        const jwtToken = tokenResult.token;
-        const role = tokenResult.claims.role || (firebaseUser.email.endsWith('@bsemetals.com') ? 'admin' : 'customer');
-        
-        let userData = {
-          uid: firebaseUser.uid,
-          email: firebaseUser.email,
-          role: role,
-          name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
-        };
-        
-        // Fetch extended profile if exists
+        const jwtToken = await firebaseUser.getIdToken(true);
+
+        // Fetch profile from DB — role stored there is the source of truth
+        let role = 'customer'; // safe default
+        let dbProfile = null;
         try {
-          const profileRes = await fetch(`http://localhost:5000/api/users/profile`, {
+          const profileRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/profile`, {
             headers: { 'Authorization': `Bearer ${jwtToken}` }
           });
           if (profileRes.ok) {
-            const profile = await profileRes.json();
-            userData = { ...userData, ...profile };
+            dbProfile = await profileRes.json();
+            role = dbProfile.role || 'customer'; // DB role wins
           }
         } catch (e) {
-          console.error('Could not fetch user profile', e);
+          console.error('Could not fetch user profile from DB', e);
+          // Fallback to Firebase claims if DB unreachable
+          const tokenResult = await firebaseUser.getIdTokenResult(true);
+          role = tokenResult.claims.role || (firebaseUser.email?.endsWith('@bsemetals.com') ? 'admin' : 'customer');
         }
-        
+
+        const userData = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          role,
+          name: dbProfile?.name || firebaseUser.displayName || firebaseUser.email.split('@')[0],
+          ...(dbProfile || {}),
+        };
+
         setUser(userData);
         setToken(jwtToken);
-        // Persist token in session for fetch interceptors
         localStorage.setItem('bsemetals_token', jwtToken);
       } catch (err) {
-        console.error('Error syncing claims:', err);
+        console.error('Error syncing user:', err);
         setUser(null);
         setToken(null);
         localStorage.removeItem('bsemetals_token');
@@ -88,7 +91,7 @@ export function AuthProvider({ children }) {
     // If attempting to login as admin, pre-verify the secret key
     if (role === 'admin' && adminSecret) {
       try {
-        const verifyRes = await fetch('http://localhost:5000/api/auth/verify-secret', {
+        const verifyRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/verify-secret`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ secret: adminSecret })
@@ -121,9 +124,14 @@ export function AuthProvider({ children }) {
     } else {
       try {
         const credential = await signInWithEmailAndPassword(firebaseAuth, email, password);
+        // Force token refresh to ensure custom claims (role) are loaded
+        await credential.user.getIdToken(true);
         await syncFirebaseUser(credential.user);
+        // Read the updated user state after sync
+        const tokenResult = await credential.user.getIdTokenResult(true);
+        const resolvedRole = tokenResult.claims.role || (credential.user.email?.endsWith('@bsemetals.com') ? 'admin' : 'customer');
         setLoading(false);
-        return credential.user;
+        return { uid: credential.user.uid, email: credential.user.email, role: resolvedRole };
       } catch (error) {
         setLoading(false);
         throw error;
@@ -138,7 +146,7 @@ export function AuthProvider({ children }) {
     // If attempting to signup as admin, pre-verify the secret key
     if (role === 'admin' && adminSecret) {
       try {
-        const verifyRes = await fetch('http://localhost:5000/api/auth/verify-secret', {
+        const verifyRes = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/verify-secret`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ secret: adminSecret })
@@ -164,7 +172,7 @@ export function AuthProvider({ children }) {
         const jwtToken = await credential.user.getIdToken();
 
         // assign role explicitly via backend
-        await fetch(`http://localhost:5000/api/auth/set-role`, {
+        await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/set-role`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -177,8 +185,8 @@ export function AuthProvider({ children }) {
           })
         });
 
-        // save profile to backend
-        await fetch(`http://localhost:5000/api/users/profile`, {
+        // save profile to backend (with role — DB is source of truth)
+        await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/users/profile`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
@@ -187,6 +195,7 @@ export function AuthProvider({ children }) {
           body: JSON.stringify({
             name: profileData.name || 'Admin',
             email: profileData.email,
+            role: role,  // Store role in DB
             phone: profileData.phone || '',
             companyName: profileData.companyName || '',
             companyAddress: profileData.companyAddress || '',
@@ -242,7 +251,8 @@ export function AuthProvider({ children }) {
       headers['Authorization'] = `Bearer ${activeToken}`;
     }
 
-    const response = await fetch(`http://localhost:5000${endpoint}`, {
+    const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       ...options,
       headers,
     });

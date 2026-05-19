@@ -36,6 +36,7 @@ model Product {
   category    Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   name        String
   unit        String      @default("kg") // Unit of product, defaults to kg
+  unitRate    Float       @default(0)    // Price per kg
   quoteItems  QuoteItem[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -49,6 +50,9 @@ model QuoteRequest {
   company      String
   phone        String
   email        String
+  address      String?     // Shipping address
+  invoiceUrl   String?
+  orderNumber  String?     @unique
   status       String      @default("PENDING") // PENDING, SENT, ACCEPTED
   items        QuoteItem[]
   createdAt    DateTime    @default(now())
@@ -70,6 +74,7 @@ model UserProfile {
   uid            String   @id // Firebase UID
   name           String
   email          String
+  role           String   @default("customer") // 'admin' or 'customer'
   phone          String?
   companyName    String?
   companyAddress String?

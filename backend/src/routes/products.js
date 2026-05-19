@@ -23,7 +23,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // Create Product (Admin only)
 router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
-  const { name, categoryId, unit } = req.body;
+  const { name, categoryId, unit, unitRate } = req.body;
 
   if (!name || !categoryId) {
     return res.status(400).json({ error: 'name and categoryId are required' });
@@ -44,6 +44,7 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
         name,
         categoryId,
         unit: unit || 'kg',
+        unitRate: parseFloat(unitRate) || 0,
       },
       include: {
         category: true,
@@ -59,7 +60,7 @@ router.post('/', authenticateToken, requireRole('admin'), async (req, res) => {
 // Update Product (Admin only)
 router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => {
   const { id } = req.params;
-  const { name, categoryId, unit } = req.body;
+  const { name, categoryId, unit, unitRate } = req.body;
 
   try {
     const product = await prisma.product.update({
@@ -68,6 +69,7 @@ router.put('/:id', authenticateToken, requireRole('admin'), async (req, res) => 
         name,
         categoryId,
         unit,
+        ...(unitRate !== undefined && { unitRate: parseFloat(unitRate) || 0 }),
       },
       include: {
         category: true,

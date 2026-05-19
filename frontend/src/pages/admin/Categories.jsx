@@ -20,16 +20,9 @@ export default function Categories() {
   const [categories, setCategories] = useState([]);
   const [todayRate, setTodayRate] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  // Form modal states
-  const [modalOpen, setModalOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-  const [name, setName] = useState('');
-  const [unitRate, setUnitRate] = useState('');
-  
-  const [formError, setFormError] = useState('');
-  const [submitLoading, setSubmitLoading] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [newCatName, setNewCatName] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -51,89 +44,40 @@ export default function Categories() {
     fetchData();
   }, []);
 
-  const openAddModal = () => {
-    setIsEditing(false);
-    setEditingId(null);
-    setName('');
-    setUnitRate('');
-    setFormError('');
-    setModalOpen(true);
-  };
-
-  const openEditModal = (cat) => {
-    setIsEditing(true);
-    setEditingId(cat.id);
-    setName(cat.name);
-    setUnitRate((cat.unitRate || 0).toString());
-    setFormError('');
-    setModalOpen(true);
-  };
-
-  const handleSave = async (e) => {
+  const handleCreateCategory = async (e) => {
     e.preventDefault();
-    if (!name || !unitRate) {
-      setFormError('Please fill in all fields.');
-      return;
-    }
-
-    const rateVal = parseFloat(unitRate);
-
-    if (rateVal < 0) {
-      setFormError('Please enter a valid positive number for the rate.');
-      return;
-    }
-
-    setSubmitLoading(true);
-    setFormError('');
-
+    if (!newCatName.trim()) return;
+    setSaving(true);
     try {
-      const body = {
-        name,
-        copperContentPct: 0,
-        makingChargePerKg: 0,
-        marginPct: 0,
-        unitRate: rateVal
-      };
-
-      if (isEditing) {
-        await apiFetch(`/api/categories/${editingId}`, {
-          method: 'PUT',
-          body: JSON.stringify(body)
-        });
-      } else {
-        await apiFetch('/api/categories', {
-          method: 'POST',
-          body: JSON.stringify(body)
-        });
-      }
-
-      setModalOpen(false);
-      await fetchData();
-    } catch (err) {
-      setFormError(err.message || 'Failed to save category.');
-    } finally {
-      setSubmitLoading(false);
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this category? Deleting it will delete all products under it!')) {
-      return;
-    }
-
-    try {
-      await apiFetch(`/api/categories/${id}`, {
-        method: 'DELETE'
+      await apiFetch('/api/categories', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: newCatName,
+          copperContentPct: 0,
+          makingChargePerKg: 0,
+          marginPct: 0,
+          unitRate: 0
+        })
       });
-      await fetchData();
+      setShowModal(false);
+      setNewCatName('');
+      fetchData();
     } catch (err) {
-      alert(err.message || 'Failed to delete category');
+      console.error('Failed to create category', err);
+      alert('Error creating category');
+    } finally {
+      setSaving(false);
     }
   };
 
-  // Preview pricing based on today's LME rate
-  const calculatePreviewRate = (cat) => {
-    return cat.unitRate || 0;
+  const handleDeleteCategory = async (id, name) => {
+    if (!window.confirm(`Are you sure you want to delete ${name}? This will delete all associated products!`)) return;
+    try {
+      await apiFetch(`/api/categories/${id}`, { method: 'DELETE' });
+      fetchData();
+    } catch (err) {
+      alert('Error deleting category');
+    }
   };
 
   if (loading) {
@@ -152,30 +96,30 @@ export default function Categories() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-100 flex items-center gap-2.5">
             <Layers className="w-8 h-8 text-copper-500" />
-            Product Categories
+            Main Product Categories
           </h1>
           <p className="text-slate-400 text-sm mt-1.5">
-            Manage category attributes and fine-tune making charges, copper content ratios, and margin percentages.
+            Manage your main metal categories like Copper, Aluminium, Zinc, etc.
           </p>
         </div>
         <button
-          onClick={openAddModal}
-          className="btn-copper py-3 self-start cursor-pointer font-bold"
+          onClick={() => setShowModal(true)}
+          className="btn-copper flex items-center gap-2 py-2.5 px-5 whitespace-nowrap cursor-pointer"
         >
-          <Plus className="w-5 h-5 stroke-[2.5]" />
-          Create Category
+          <Plus className="w-4 h-4" />
+          Add Category
         </button>
       </div>
 
-      {/* Pricing Formula Explainer Banner */}
+      {/* Info Banner */}
       <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 flex gap-4 items-start shadow-inner">
         <div className="p-2.5 rounded-xl bg-copper-500/10 text-copper-500 border border-copper-500/15">
           <Info className="w-5 h-5" />
         </div>
         <div className="text-sm">
-          <h3 className="font-bold text-slate-200">Manual Pricing Mode</h3>
+          <h3 className="font-bold text-slate-200">Organize Your Metals</h3>
           <p className="text-slate-400 text-xs mt-1 leading-relaxed">
-            The system uses direct manual rates for each category. Set the flat price per kg directly for customers to see.
+            Create high-level categories (e.g., "Aluminium", "Copper"). Pricing and specific items are managed under the Product Catalog tab.
           </p>
         </div>
       </div>
@@ -183,7 +127,6 @@ export default function Categories() {
       {/* Category Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {categories.map((cat) => {
-          const previewRate = calculatePreviewRate(cat);
           return (
             <div key={cat.id} className="glass-panel rounded-2xl p-6 relative flex flex-col justify-between border-slate-800 group hover:border-copper-500/40 transition duration-300">
               
@@ -199,108 +142,87 @@ export default function Categories() {
 
               {/* Dynamic Preview */}
               <div className="mt-5 bg-slate-950/60 rounded-xl p-4 border border-slate-900 flex items-center justify-between">
-                <div>
+                <div className="flex items-center gap-2">
                   <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block">
-                    Fixed Category Rate
+                    Status
                   </span>
-                  <span className="text-base font-black text-emerald-400 tracking-tight block mt-0.5">
-                    ₹{previewRate.toFixed(2)}/kg
+                  <span className="text-xs font-black text-emerald-400 tracking-tight block">
+                    Active
                   </span>
                 </div>
-              </div>
-
-              {/* Actions Footer */}
-              <div className="flex items-center gap-2 mt-6 pt-4 border-t border-slate-900/60">
                 <button
-                  onClick={() => openEditModal(cat)}
-                  className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-xs bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 font-bold hover:text-white transition cursor-pointer"
-                >
-                  <Edit2 className="w-3.5 h-3.5" />
-                  Edit Parameters
-                </button>
-                <button
-                  onClick={() => handleDelete(cat.id)}
-                  className="p-2 rounded-xl bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20 text-rose-400 transition cursor-pointer"
+                  onClick={() => handleDeleteCategory(cat.id, cat.name)}
+                  className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition cursor-pointer"
                   title="Delete Category"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-
             </div>
           );
         })}
         {categories.length === 0 && (
           <div className="col-span-full glass-panel rounded-2xl p-12 text-center text-slate-500">
-            No copper categories created. Click "Create Category" to build one!
+            No metal categories found in the database.
           </div>
         )}
       </div>
 
-      {/* CRUD Overlay Form Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-md w-full glass-panel border-slate-800 rounded-3xl p-6 shadow-2xl relative">
+
+
+      {/* Add Category Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between p-6 border-b border-slate-800/60 bg-slate-900/50">
+              <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+                <Layers className="w-5 h-5 text-copper-500" />
+                Add New Metal Category
+              </h3>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-slate-400 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
             
-            <button
-              onClick={() => setModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-500 hover:text-slate-200 p-1 rounded-lg hover:bg-slate-900"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <h2 className="text-xl font-bold text-slate-200 mb-6 flex items-center gap-2">
-              <Layers className="w-5 h-5 text-copper-500" />
-              {isEditing ? 'Modify Category' : 'Create Category'}
-            </h2>
-
-            {formError && (
-              <div className="mb-5 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleSave} className="space-y-4">
+            <form onSubmit={handleCreateCategory} className="p-6 space-y-5">
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Category Name</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                  Category Name
+                </label>
                 <input
                   type="text"
                   required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Electrical Wire (99.9% Copper)"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  placeholder="e.g., Aluminium, Zinc, Brass"
                   className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-copper-500 rounded-xl py-2.5 px-4 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1.5">Unit Rate (₹ / kg)</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-semibold">₹</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    required
-                    value={unitRate}
-                    onChange={(e) => setUnitRate(e.target.value)}
-                    placeholder="850.00"
-                    className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-copper-500 rounded-xl py-2.5 pl-8 pr-4 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition"
-                  />
-                </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 py-2.5 px-4 rounded-xl text-sm font-bold text-slate-300 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                  disabled={saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || !newCatName.trim()}
+                  className="flex-1 btn-copper py-2.5 rounded-xl cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                >
+                  {saving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    'Add Category'
+                  )}
+                </button>
               </div>
-
-              <button
-                type="submit"
-                disabled={submitLoading}
-                className="w-full btn-copper py-3 mt-4 font-semibold cursor-pointer"
-              >
-                {submitLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  isEditing ? 'Save Category Changes' : 'Create Category'
-                )}
-              </button>
             </form>
           </div>
         </div>

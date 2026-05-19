@@ -2,15 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { 
-  ShoppingCart, 
-  IndianRupee, 
-  Loader2, 
-  ArrowRight, 
-  Package, 
-  Scale, 
-  Layers, 
-  CheckCircle2 
+import {
+  ShoppingCart,
+  IndianRupee,
+  Loader2,
+  ArrowRight,
+  Package,
+  Scale,
+  Layers,
+  CheckCircle2,
+  Search
 } from 'lucide-react';
 
 export default function QuoteCatalog() {
@@ -21,6 +22,7 @@ export default function QuoteCatalog() {
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState({}); // { [productId]: quantity }
   const [successMsg, setSuccessMsg] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchData = async () => {
     try {
@@ -66,13 +68,19 @@ export default function QuoteCatalog() {
     localStorage.setItem('bsemetals_cart', JSON.stringify(newCart));
   };
 
-  // Pricing snap formula: ratePerKg = category unitRate
+  // Pricing snap formula: ratePerKg = product unitRate
   const getProductRate = (prod) => {
-    return prod.category?.unitRate || 0;
+    return prod.unitRate || 0;
   };
 
-  // Group products by category name
-  const productsByCategory = products.reduce((groups, prod) => {
+  // Filter products by search query
+  const filteredProducts = products.filter(prod => 
+    prod.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (prod.category?.name || '').toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Group filtered products by category name
+  const productsByCategory = filteredProducts.reduce((groups, prod) => {
     const catName = prod.category?.name || 'Unassigned';
     if (!groups[catName]) {
       groups[catName] = [];
@@ -115,14 +123,14 @@ export default function QuoteCatalog() {
 
   return (
     <div className="space-y-8 pb-24">
-      
+
       {/* Banner */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 bg-slate-900 border border-slate-800 rounded-3xl p-6 relative overflow-hidden shadow-2xl">
         <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-copper-500/5 blur-2xl"></div>
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight text-slate-100 flex items-center gap-2.5">
             <ShoppingCart className="w-8 h-8 text-copper-500" />
-            Copper Products Catalog
+            Metal Products Catalog
           </h1>
           <p className="text-slate-400 text-sm mt-1.5 leading-relaxed max-w-xl">
             Input the quantity required in kg. The custom pricing system maps directly to the active category rates published by the administration.
@@ -130,9 +138,20 @@ export default function QuoteCatalog() {
         </div>
       </div>
 
-      {products.length === 0 && (
+      {products.length === 0 ? (
         <div className="glass-panel rounded-2xl p-12 text-center text-slate-500">
-          No copper products currently published in the catalog.
+          No products currently published in the catalog.
+        </div>
+      ) : (
+        <div className="relative w-full mb-8">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+          <input
+            type="text"
+            placeholder="Search products or categories..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-slate-900/50 border border-slate-800 hover:border-slate-700 focus:border-copper-500 rounded-2xl py-3.5 pl-12 pr-4 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition shadow-inner"
+          />
         </div>
       )}
 
@@ -151,11 +170,10 @@ export default function QuoteCatalog() {
               const subtotal = rate * (parseFloat(qty) || 0);
 
               return (
-                <div 
-                  key={prod.id} 
-                  className={`glass-panel rounded-2xl p-5 border transition duration-300 flex flex-col justify-between ${
-                    qty > 0 ? 'border-copper-500/30 bg-slate-900/80 shadow-copper-glow' : 'border-slate-850 hover:border-slate-800'
-                  }`}
+                <div
+                  key={prod.id}
+                  className={`glass-panel rounded-2xl p-5 border transition duration-300 flex flex-col justify-between ${qty > 0 ? 'border-copper-500/30 bg-slate-900/80 shadow-copper-glow' : 'border-slate-850 hover:border-slate-800'
+                    }`}
                 >
                   <div>
                     {/* Item title */}

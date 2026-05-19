@@ -4,11 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, Loader2, ShieldCheck, UserCheck, Layers2, ArrowRight } from 'lucide-react';
 
-export default function Login() {
+export default function Login({ initialType = 'customer' }) {
   const { login, signup, isMock, toggleDevMode } = useAuth();
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
-  const [loginType, setLoginType] = useState('customer');
+  const [loginType, setLoginType] = useState(initialType);
   const [adminSecret, setAdminSecret] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,7 +45,7 @@ export default function Login() {
         : await signup({ email, password, name, phone, companyName, companyAddress, gstin }, loginType, adminSecret);
       // Role redirection
       if (loggedUser.role === 'admin') {
-        navigate('/admin/rates');
+        navigate('/admin/categories');
       } else {
         navigate('/quote');
       }
@@ -63,7 +63,7 @@ export default function Login() {
     try {
       const loggedUser = await login('demo@bsemetals.com', 'demopass', role);
       if (loggedUser.role === 'admin') {
-        navigate('/admin/rates');
+        navigate('/admin/categories');
       } else {
         navigate('/quote');
       }
@@ -125,10 +125,10 @@ export default function Login() {
 
         {/* Credentials Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          {!isLogin && loginType === 'customer' && (
+          {!isLogin && (
             <>
               <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Full Name</label>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Full Name *</label>
                 <div className="relative">
                   <UserCheck className="absolute left-4 top-1/2 -translate-y-1/2 w-4.5 h-4.5 text-slate-500" />
                   <input
@@ -141,25 +141,13 @@ export default function Login() {
                   />
                 </div>
               </div>
-              
-              <div>
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Phone Number</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="+91 98765 43210"
-                    className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-copper-500 rounded-xl py-3 px-4 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition duration-200"
-                  />
-                </div>
-              </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Company Name</label>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Company Name *</label>
                   <input
                     type="text"
+                    required
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     placeholder="Alpha Electricals"
@@ -167,12 +155,14 @@ export default function Login() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">GSTIN</label>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">GSTIN *</label>
                   <input
                     type="text"
+                    required
                     value={gstin}
-                    onChange={(e) => setGstin(e.target.value)}
+                    onChange={(e) => setGstin(e.target.value.toUpperCase())}
                     placeholder="22AAAAA0000A1Z5"
+                    maxLength={15}
                     className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-copper-500 rounded-xl py-3 px-4 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition duration-200"
                   />
                 </div>
@@ -185,6 +175,17 @@ export default function Login() {
                   value={companyAddress}
                   onChange={(e) => setCompanyAddress(e.target.value)}
                   placeholder="123 Industrial Area, Mumbai"
+                  className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-copper-500 rounded-xl py-3 px-4 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition duration-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2">Phone Number</label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
                   className="w-full bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-copper-500 rounded-xl py-3 px-4 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition duration-200"
                 />
               </div>

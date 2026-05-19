@@ -16,7 +16,10 @@ import {
   Eye, 
   ChevronDown, 
   ChevronUp, 
-  IndianRupee 
+  IndianRupee,
+  Search,
+  Upload,
+  FileCheck
 } from 'lucide-react';
 
 export default function Quotes() {
@@ -25,7 +28,9 @@ export default function Quotes() {
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [filter, setFilter] = useState('ALL'); // ALL, PENDING, SENT, ACCEPTED
+  const [searchQuery, setSearchQuery] = useState('');
   const [statusUpdateLoading, setStatusUpdateLoading] = useState(null);
+  const [uploading, setUploading] = useState(null);
 
   const fetchQuotes = async () => {
     try {
@@ -57,6 +62,32 @@ export default function Quotes() {
     }
   };
 
+  const handleUploadInvoice = async (quoteId, file) => {
+    if (!file) return;
+    setUploading(quoteId);
+    
+    const formData = new FormData();
+    formData.append('invoice', file);
+
+    try {
+      // Must use native fetch because apiFetch currently stringifies bodies that are plain objects, 
+      // but fetch handles FormData natively without Content-Type (it sets boundary).
+      const token = localStorage.getItem('bsemetals_token');
+      const response = await fetch(`http://localhost:5000/api/quotes/${quoteId}/invoice`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+        body: formData
+      });
+      if (!response.ok) throw new Error('Failed to upload invoice');
+      await fetchQuotes();
+      alert('Invoice uploaded successfully!');
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setUploading(null);
+    }
+  };
+
   const calculateTotal = (items) => {
     return items.reduce((sum, item) => sum + item.subtotal, 0);
   };
@@ -66,8 +97,17 @@ export default function Quotes() {
   };
 
   const filteredQuotes = quotes.filter(q => {
-    if (filter === 'ALL') return true;
-    return q.status === filter;
+    const matchesFilter = filter === 'ALL' || q.status === filter;
+    if (!matchesFilter) return false;
+    
+    if (searchQuery.trim() !== '') {
+      const qStr = searchQuery.toLowerCase();
+      const num = q.orderNumber?.toLowerCase() || '';
+      const cname = q.customerName?.toLowerCase() || '';
+      const comp = q.company?.toLowerCase() || '';
+      return num.includes(qStr) || cname.includes(qStr) || comp.includes(qStr);
+    }
+    return true;
   });
 
   const getStatusBadge = (status) => {
@@ -139,6 +179,18 @@ export default function Quotes() {
         </div>
       </div>
 
+      {/* Search Bar */}
+      <div className="relative w-full">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" />
+        <input
+          type="text"
+          placeholder="Search by Order ID, Customer Name, or Company..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full bg-slate-900 border border-slate-800 hover:border-slate-700 focus:border-copper-500 rounded-xl py-3 pl-12 pr-4 text-sm text-slate-100 placeholder:text-slate-600 outline-none transition"
+        />
+      </div>
+
       {/* Quote ledger list */}
       <div className="space-y-4">
         {filteredQuotes.map((quote) => {
@@ -161,7 +213,9 @@ export default function Quotes() {
                 {/* Meta details */}
                 <div className="space-y-1">
                   <div className="flex items-center gap-3">
-                    <span className="text-sm font-bold text-slate-300">Quote #{quote.id.slice(0, 8).toUpperCase()}</span>
+                    <span className="text-sm font-bold text-slate-300">
+                      {quote.orderNumber || `Quote #${quote.id.slice(0, 8).toUpperCase()}`}
+                    </span>
                     {getStatusBadge(quote.status)}
                   </div>
                   
@@ -266,6 +320,46 @@ export default function Quotes() {
                               Accept Order
                             </button>
                           )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Invoice Section */}
+                    <div className="bg-slate-950 p-4 border border-slate-900 rounded-xl flex flex-col justify-between">
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block mb-2">Invoice</span>
+                      
+                      {quote.invoiceUrl ? (
+                        <a 
+                          href={`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${quote.invoiceUrl}`} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition"
+                        >
+                          <FileCheck className="w-4 h-4" /> View Uploaded Invoice
+                        </a>
+                      ) : (
+                        <div className="relative">
+                          <input 
+                            type="file" 
+                            id={`invoice-upload-${quote.id}`}
+                            className="hidden"
+                            accept=".pdf,image/*"
+                            onChange={(e) => handleUploadInvoice(quote.id, e.target.files[0])}
+                          />
+                          <label 
+                            htmlFor={`invoice-upload-${quote.id}`}
+                            className={`flex items-center justify-center gap-2 px-3 py-2 text-xs font-bold border rounded-lg transition cursor-pointer ${
+                              uploading === quote.id 
+                                ? 'bg-slate-800 border-slate-700 text-slate-400 cursor-not-allowed'
+                                : 'bg-slate-900 border-slate-800 hover:border-copper-500/40 text-slate-300 hover:text-copper-400'
+                            }`}
+                          >
+                            {uploading === quote.id ? (
+                              <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
+                            ) : (
+                              <><Upload className="w-4 h-4" /> Upload Proper Invoice</>
+                            )}
+                          </label>
                         </div>
                       )}
                     </div>

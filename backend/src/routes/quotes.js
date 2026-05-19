@@ -1,6 +1,9 @@
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
 import { authenticateToken, requireRole } from '../middleware/auth.js';
+import multer from 'multer';
+import path from 'path';
+import crypto from 'crypto';
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -52,10 +55,10 @@ router.get('/', authenticateToken, async (req, res) => {
 
 // Submit a new Quote Request (Customer only)
 router.post('/', authenticateToken, requireRole('customer'), async (req, res) => {
-  const { customerName, company, phone, email, items } = req.body;
+  const { customerName, company, phone, email, address, items } = req.body;
 
-  if (!customerName || !company || !phone || !email || !items || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'Missing required field(s). Contact info and an items array are required.' });
+  if (!customerName || !company || !phone || !email || !address || !items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'Missing required field(s). Contact info, address, and an items array are required.' });
   }
 
   try {
@@ -81,10 +84,8 @@ router.post('/', authenticateToken, requireRole('customer'), async (req, res) =>
         return res.status(404).json({ error: `Product with ID ${productId} not found` });
       }
 
-      const cat = product.category;
-      
-      // Calculate ratePerKg = category unitRate manually set by admin
-      const ratePerKg = cat.unitRate || 0;
+      // Calculate ratePerKg = product unitRate manually set by admin
+      const ratePerKg = product.unitRate || 0;
 
       const qty = parseFloat(quantity);
       const subtotal = Math.round((ratePerKg * qty) * 100) / 100;
@@ -97,6 +98,30 @@ router.post('/', authenticateToken, requireRole('customer'), async (req, res) =>
       });
     }
 
+    // 2.5 Ensure the UserProfile exists in the database to satisfy the foreign key constraint.
+    // If the database was reset or the user was created externally, their SQLite profile might be missing.
+    await prisma.userProfile.upsert({
+      where: { uid: req.user.uid },
+      update: {
+        name: customerName,
+        email: email,
+        phone: phone,
+        companyName: company
+      },
+      create: {
+        uid: req.user.uid,
+        name: customerName,
+        email: email,
+        role: 'customer',
+        phone: phone,
+        companyName: company
+      }
+    });
+
+    // Generate a unique short order ID (e.g., ORD-A8F2B1)
+    const shortId = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const orderNumber = `ORD-${shortId}`;
+
     // 3. Create the QuoteRequest and related QuoteItems in a transaction
     const newQuote = await prisma.quoteRequest.create({
       data: {
@@ -105,6 +130,8 @@ router.post('/', authenticateToken, requireRole('customer'), async (req, res) =>
         company,
         phone,
         email,
+        address,
+        orderNumber,
         status: 'PENDING',
         items: {
           create: dbItems
@@ -158,6 +185,50 @@ router.put('/:id/status', authenticateToken, requireRole('admin'), async (req, r
   } catch (error) {
     console.error('Error updating quote status:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Setup multer for local file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'uploads/');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+});
+
+// Upload Invoice (Admin only)
+router.post('/:id/invoice', authenticateToken, requireRole('admin'), upload.single('invoice'), async (req, res) => {
+  const { id } = req.params;
+
+  if (!req.file) {
+    return res.status(400).json({ error: 'No invoice file uploaded.' });
+  }
+
+  // Construct the URL to serve the file statically
+  const invoiceUrl = `/uploads/${req.file.filename}`;
+
+  try {
+    const updatedQuote = await prisma.quoteRequest.update({
+      where: { id },
+      data: { invoiceUrl },
+    });
+
+    res.json({
+      message: 'Invoice uploaded successfully',
+      invoiceUrl,
+      quote: updatedQuote
+    });
+  } catch (error) {
+    console.error('Error uploading invoice:', error);
+    res.status(500).json({ error: 'Failed to upload invoice.' });
   }
 });
 
